@@ -1,5 +1,22 @@
 cmake_minimum_required(VERSION 2.8.4)
 project(XInputSimulator)
+set(PROJECT_VERSION 0.1)
+
+option(WITH_PIC "Compile static library as position-independent code" OFF) # Shared library is always PIC
+option(BUILD_STATIC_LIBS "Build the static library" ON)
+option(BUILD_SHARED_LIBS "Build the shared library" ON)
+option(BUILD_MACOS_FATLIB "Build Fat library for both i386 and x86_64 on macOS" ON)
+option(BUILD_MANUAL_TEST "Build the test application" ON)
+
+if(BUILD_MACOS_FATLIB)
+    if (CMAKE_OSX_ARCHITECTURES)
+        message(FATAL_ERROR "User supplied -DCMAKE_OSX_ARCHITECTURES overrides BUILD_MACOS_FATLIB=ON")
+    else()
+        SET(CMAKE_OSX_ARCHITECTURES "x86_64;i386")
+    endif()
+endif()
+
+configure_file(XInputSimulator.pc.in XInputSimulator.pc @ONLY)
 
     # Linux
     if(UNIX AND NOT APPLE)
@@ -18,6 +35,7 @@ project(XInputSimulator)
        set(EXTRA_LIBS ${APP_SERVICES_LIBRARY} ${CARBON} ${CORE_FOUNDATION})
 	   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 	   set(PLATFORM_SOURCE_FILES xinputsimulatorimplmacos.cpp xinputsimulatorimplmacos.h)
+       set(CMAKE_MACOSX_RPATH ON)
     endif(APPLE)
 	
 	# Windows
@@ -28,14 +46,42 @@ project(XInputSimulator)
 	endif(WIN32)
 	
 	set(SOURCE_FILES
-		main.cpp
 		notimplementedexception.cpp
-		notimplementedexception.h
 		xinputsimulator.cpp
 		xinputsimulator.h
 		xinputsimulatorimpl.cpp
 		xinputsimulatorimpl.h
 		${PLATFORM_SOURCE_FILES})
 
-add_executable(XInputSimulator ${SOURCE_FILES})
-target_link_libraries(XInputSimulator ${EXTRA_LIBS} )
+link_libraries(${EXTRA_LIBS} )
+
+if (BUILD_SHARED_LIBS)
+    add_library(XInputSimulator SHARED ${SOURCE_FILES})
+    set_property(TARGET XInputSimulator PROPERTY POSITION_INDEPENDENT_CODE ON)
+endif()
+if (BUILD_STATIC_LIBS)
+    add_library(XInputSimulator_static STATIC ${SOURCE_FILES})
+    if (WITH_PIC)
+        set_property(TARGET XInputSimulator_static PROPERTY POSITION_INDEPENDENT_CODE ON)
+    endif()
+    if(NOT WIN32) # Keep lib*.(a|dll) name, but avoid *.lib files overwriting each other on Windows
+        set_target_properties(XInputSimulator_static PROPERTIES OUTPUT_NAME XInputSimulator)
+    endif()
+endif()
+
+
+
+IF (NOT (BUILD_STATIC_LIBS OR BUILD_SHARED_LIBS))
+    MESSAGE(FATAL_ERROR "Both -DBUILD_SHARED_LIBS=OFF and -DBUILD_STATIC_LIBS=OFF supplied. Nothing to do...")
+ENDIF()
+
+if (BUILD_MANUAL_TEST)
+    add_executable(XInputSimulator_bin main.cpp)
+    target_link_libraries(XInputSimulator_bin XInputSimulator)
+    set_target_properties(XInputSimulator_bin PROPERTIES OUTPUT_NAME "XInputSimulator")
+endif()
+
+install(FILES ${CMAKE_BINARY_DIR}/XInputSimulator.pc DESTINATION share/pkgconfig)
+install(TARGETS XInputSimulator XInputSimulator_static DESTINATION lib)
+install(FILES xinputsimulator.h DESTINATION include)
+
