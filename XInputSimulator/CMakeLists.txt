@@ -85,7 +85,7 @@ if (BUILD_MANUAL_TEST)
     set_target_properties(XInputSimulator_bin PROPERTIES OUTPUT_NAME "XInputSimulator")
 endif()
 
-install(FILES ${CMAKE_BINARY_DIR}/XInputSimulator.pc DESTINATION lib/pkgconfig)
+install(FILES ${CMAKE_BINARY_DIR}/XInputSimulator.pc DESTINATION share/pkgconfig)
 install(TARGETS XInputSimulator XInputSimulator_static
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib)
